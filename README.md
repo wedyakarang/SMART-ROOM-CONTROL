@@ -1,1 +1,101 @@
 # SMART-ROOM-CONTROL
+
+Smart Room Control Center
+
+Dashboard web untuk memantau dan mengendalikan ruangan pintar berbasis ESP32 lewat MQTT (EMQX Cloud). Seluruh dashboard hanya satu file HTML, tanpa instalasi dan tanpa server sendiri.
+
+Fitur
+Pembacaan suhu, kelembapan, intensitas cahaya, dan deteksi gerakan.
+Dimana ketika suhu tinggi maka relay atau sebagai kipas akan menyala, dan sebaliknya, jika cahaya terang maka jendela akan menutup, dan sebaliknya, dan jika terditeksi ada gerakan maka buzzer akan berbunyi dan sebaliknya.
+Tabel riwayat data sensor (maksimal 500 data terakhir) dengan tombol jeda, hapus, dan unduh CSV.
+Kendali kipas (relay), jendela (servo), dan buzzer dengan mode manual dan otomatis. Mode manual bertahan 30 detik.
+Status perangkat (aktif atau tidak merespons) dan log aktivitas.
+Cara kerja
+ESP32 (Wokwi / asli) --MQTT TLS 8883--> EMQX Cloud <--WebSocket TLS 8084-- Dashboard (browser)
+
+ESP32 mengirim data sensor ke broker, dan dashboard berlangganan ke topik yang sama. Perintah dari dashboard dikirim balik ke ESP32 lewat topik .../set.
+
+Perangkat keras
+Komponen	Pin ESP32
+DHT22 (suhu dan kelembapan)	13
+LDR (cahaya)	34
+Relay (kipas)	27
+Servo (jendela)	18
+PIR (gerakan)	14
+Buzzer	25
+
+Logika otomatis: kipas menyala jika suhu di atas 30 °C, dan jendela menutup jika cahaya di atas 2000.
+
+Topik MQTT
+Topik	Arah	Isi
+smartroom/telemetry	ESP32 ke dashboard	JSON data sensor, dikirim tiap 2 detik
+smartroom/status	ESP32 ke dashboard	ONLINE
+smartroom/motion	ESP32 ke dashboard	DETECTED atau CLEAR
+smartroom/relay/set	dashboard ke ESP32	ON, OFF, AUTO
+smartroom/window/set	dashboard ke ESP32	OPEN, CLOSE, AUTO
+smartroom/buzzer/set	dashboard ke ESP32	ON, OFF, AUTO
+
+Contoh isi smartroom/telemetry:
+
+json
+{"temp":27.5,"hum":60.2,"light":1500,"motion":"NO","relay":"OFF","window":"OPEN","buzzer":"OFF"}
+Persiapan broker EMQX
+Buat deployment Serverless di EMQX Cloud dan tunggu statusnya Running.
+Buka Access Control > Client Authentication, lalu tambahkan username dan password.
+Catat alamat broker dari halaman Overview.
+Port yang dipakai: 8883 untuk ESP32 (MQTT TLS) dan 8084 untuk dashboard (WebSocket TLS, path /mqtt).
+Menjalankan dashboard
+
+Cara paling mudah: klik dua kali index.html atau buka_dashboard.cmd. Gunakan Chrome atau Edge dan pastikan terhubung ke internet (library MQTT.js dimuat dari CDN).
+
+Lewat CMD:
+
+cmd
+cd /d D:\path\ke\smartroom-dashboard
+start index.html
+
+Lewat server lokal (opsional):
+
+cmd
+python -m http.server 8000
+
+Lalu buka http://localhost:8000.
+
+Saat pertama dibuka, klik Pengaturan broker lalu isi:
+
+Kolom	Nilai
+Host	alamat broker dari EMQX
+Port	8084
+Path	/mqtt
+Username dan password	akun dari Client Authentication
+
+Pengaturan tersimpan di browser (localStorage), jadi cukup diisi sekali per perangkat.
+
+Publikasi lewat GitHub Pages
+Unggah repositori ini ke GitHub.
+Buka Settings > Pages.
+Pada Build and deployment, pilih Deploy from a branch, branch main, folder / (root), lalu Save.
+Dashboard bisa dibuka di https://USERNAME.github.io/smartroom-dashboard/.
+Keamanan
+Jangan menulis username, password, atau password WiFi di file yang diunggah ke repositori publik. Dashboard ini sudah dikosongkan kredensialnya.
+Gunakan akun MQTT khusus dashboard, bukan akun utama.
+Untuk firmware ESP32, simpan kredensial di file secrets.h yang sudah masuk .gitignore.
+Pemecahan masalah
+Gejala	Penyebab dan solusi
+Pill merah Terputus	Periksa host, port 8084, path /mqtt, serta username dan password. Pastikan deployment EMQX berstatus Running.
+Pill hijau tetapi kartu -- dan tabel kosong	Dashboard sudah benar, tetapi ESP32 belum terhubung ke broker. Periksa serial monitor ESP32.
+ESP32: Connection reset by peer	Masalah TLS atau jaringan. Coba setInsecure() untuk pengujian, atau gunakan ESP32 asli.
+ESP32: NTP tidak sinkron	Ganti server NTP (time.google.com) atau jalankan ulang simulasi.
+Halaman tidak berubah setelah edit	Muat ulang dengan Ctrl + F5.
+Struktur repositori
+smartroom-dashboard/
+├── index.html            # dashboard (satu file)
+├── buka_dashboard.cmd    # pintasan membuka dashboard di Windows
+├── README.md
+└── .gitignore
+
+Firmware ESP32 (src/main.cpp dan platformio.ini) bisa ditambahkan ke folder yang sama jika ingin dipublikasikan, selama kredensial dipindahkan ke secrets.h.
+
+Teknologi
+
+HTML, CSS, JavaScript murni, MQTT.js, EMQX Cloud, ESP32 (Arduino framework, PlatformIO), dan simulasi Wokwi.
