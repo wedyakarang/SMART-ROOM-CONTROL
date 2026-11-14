@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Room Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#e8eeeb;
+  --surface:#f7f9f7;
+  --surface-2:#eef3f0;
+  --ink:#12302a;
+  --muted:#5d746d;
+  --line:#d3ddd8;
+  --pine:#1f5a4d;
+  --pine-soft:#d5e6df;
+  --brass:#b7832f;
+  --brass-soft:#f1e4c8;
+  --sky:#3e6c8f;
+  --sky-soft:#d7e4ee;
+  --coral:#c4554a;
+  --coral-soft:#f4dad6;
+  --serif:'Fraunces',Georgia,'Times New Roman',serif;
+  --sans:'Instrument Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{
+  margin:0;color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;min-height:100vh;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--pine);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 24px 48px}
+ 
+/* ---------- header ---------- */
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.brand h1{font-family:var(--serif);font-weight:600;font-size:28px;line-height:1.1;margin:0;letter-spacing:-.01em}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.head-right{display:flex;align-items:center;gap:10px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:14px;font-weight:500}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.pill[data-state="online"] .dot{background:var(--pine);box-shadow:0 0 0 4px var(--pine-soft)}
+.pill[data-state="connecting"] .dot{background:var(--brass);box-shadow:0 0 0 4px var(--brass-soft)}
+.pill[data-state="offline"] .dot{background:var(--coral);box-shadow:0 0 0 4px var(--coral-soft)}
+.icon-btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-weight:500;font-size:14px}
+.icon-btn:hover{background:var(--surface-2)}
+ 
+/* ---------- layout ---------- */
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:20px}
+.stack{display:grid;gap:20px;align-content:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
+.card h2{font-size:15px;font-weight:600;margin:0 0 14px;color:var(--ink)}
+.muted{color:var(--muted)}
+ 
+/* ---------- hero ---------- */
+.hero{border-radius:22px;padding:30px 30px 26px;background:var(--pine);color:#f2f7f4;border:none}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.hero .label{font-size:14px;color:#b9d3ca}
+.temp{font-family:var(--serif);font-weight:400;font-size:clamp(76px,12vw,128px);line-height:.95;letter-spacing:-.03em;margin:6px 0 0;font-variation-settings:'opsz' 144}
+.temp small{font-size:.36em;letter-spacing:0;margin-left:6px;color:#b9d3ca}
+.verdict{max-width:300px;font-size:16px;line-height:1.45;color:#eaf3ef;margin:10px 0 0}
+.verdict b{font-weight:600}
+.scale{margin-top:28px}
+.scale-track{position:relative;height:10px;border-radius:999px;background:linear-gradient(90deg,#4f8a79 0%,#7fae9d 60%,#d9a85a 60%,#d9806f 100%);}
+.scale-mark{position:absolute;top:50%;width:18px;height:18px;border-radius:50%;background:#f7f9f7;border:3px solid var(--pine);transform:translate(-50%,-50%);transition:left .6s ease}
+.scale-limit{position:absolute;left:60%;top:-6px;bottom:-6px;width:2px;background:#f7f9f7;opacity:.8}
+.scale-legend{display:flex;justify-content:space-between;margin-top:10px;font-size:13px;color:#b9d3ca}
+.scale-legend span:nth-child(2){position:absolute;left:60%;transform:translateX(-50%)}
+.scale-legend{position:relative}
+ 
+/* ---------- sensors ---------- */
+.sensors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.metric .name{font-size:14px;color:var(--muted)}
+.metric .val{font-family:var(--serif);font-size:38px;line-height:1.1;margin:6px 0 2px;letter-spacing:-.02em}
+.metric .val small{font-family:var(--sans);font-size:15px;color:var(--muted);margin-left:3px;letter-spacing:0}
+.metric .note{font-size:13px;color:var(--muted);min-height:20px}
+.bar{position:relative;height:6px;border-radius:999px;background:var(--surface-2);margin-top:14px;overflow:visible}
+.bar i{display:block;height:100%;border-radius:999px;background:var(--sky);width:0;transition:width .6s ease}
+.bar.brass i{background:var(--brass)}
+.bar .tick{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);opacity:.35}
+.motion-ico{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--line);margin-right:8px;vertical-align:middle}
+.motion-on .motion-ico{background:var(--coral);box-shadow:0 0 0 5px var(--coral-soft)}
+ 
+/* ---------- controls ---------- */
+.ctrl{padding:16px 0;border-top:1px solid var(--line)}
+.ctrl:first-of-type{border-top:none;padding-top:2px}
+.ctrl-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.ctrl-name{font-weight:600}
+.ctrl-state{font-size:13px;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted);font-weight:500}
+.ctrl-state.on{background:var(--pine-soft);color:var(--pine)}
+.ctrl-state.alert{background:var(--coral-soft);color:var(--coral)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;background:var(--surface-2);border-radius:999px;border:1px solid var(--line)}
+.seg button{border:none;background:transparent;padding:8px 6px;border-radius:999px;font-size:14px;font-weight:500;color:var(--muted)}
+.seg button:hover:not(:disabled){color:var(--ink)}
+.seg button.active{background:var(--pine);color:#f2f7f4}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+.manual-note{font-size:12.5px;color:var(--brass);margin-top:8px;min-height:18px}
+ 
+/* ---------- chart + log ---------- */
+.chart-box{position:relative;height:280px}
+.log{list-style:none;margin:0;padding:0;max-height:280px;overflow:auto}
+.log li{display:flex;gap:12px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.log li:first-child{border-top:none}
+.log time{color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+.log .ok{color:var(--pine)} .log .warn{color:var(--brass)} .log .err{color:var(--coral)}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+ 
+.foot{margin-top:28px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+ 
+/* ---------- dialog ---------- */
+dialog{border:1px solid var(--line);border-radius:16px;padding:0;background:var(--surface);color:var(--ink);width:min(440px,92vw)}
+dialog::backdrop{background:rgba(18,48,42,.45)}
+dialog form{padding:24px;display:grid;gap:14px}
+dialog h3{margin:0;font-family:var(--serif);font-size:22px;font-weight:600}
+dialog label{display:grid;gap:6px;font-size:14px;color:var(--muted)}
+dialog input{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
+.btn{border:1px solid var(--line);background:var(--surface);padding:9px 18px;border-radius:999px;font-weight:500}
+.btn.primary{background:var(--pine);border-color:var(--pine);color:#f2f7f4}
+ 
+@media (max-width:900px){
+  .grid{grid-template-columns:1fr}
+  .sensors{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+ 
+  <header>
+    <div class="brand">
+      <h1>Smart Room</h1>
+      <p id="brokerLine">Memantau dan mengendalikan ruangan lewat MQTT</p>
+    </div>
+    <div class="head-right">
+      <span class="pill" id="connPill" data-state="offline"><span class="dot"></span><span id="connText">Belum terhubung</span></span>
+      <button class="icon-btn" id="openSettings" type="button">Pengaturan broker</button>
+    </div>
+  </header>
+ 
+  <div class="grid">
+    <!-- KOLOM KIRI -->
+    <div class="stack">
+      <section class="card hero" aria-live="polite">
+        <div class="hero-top">
+          <div>
+            <div class="label">Suhu ruangan</div>
+            <div class="temp"><span id="tempVal">--</span><small>°C</small></div>
+          </div>
+          <p class="verdict" id="verdict">Menunggu data dari perangkat.</p>
+        </div>
+        <div class="scale">
+          <div class="scale-track">
+            <div class="scale-limit"></div>
+            <div class="scale-mark" id="tempMark" style="left:0%"></div>
+          </div>
+          <div class="scale-legend"><span>0°</span><span>Batas kipas 30°</span><span>50°</span></div>
+        </div>
+      </section>
+ 
+      <div class="sensors">
+        <section class="card metric">
+          <div class="name">Kelembapan</div>
+          <div class="val"><span id="humVal">--</span><small>%</small></div>
+          <div class="note" id="humNote">&nbsp;</div>
+          <div class="bar"><i id="humBar"></i></div>
+        </section>
+        <section class="card metric">
+          <div class="name">Cahaya</div>
+          <div class="val"><span id="lightVal">--</span></div>
+          <div class="note" id="lightNote">&nbsp;</div>
+          <div class="bar brass"><i id="lightBar"></i><span class="tick" style="left:48.8%"></span></div>
+        </section>
+        <section class="card metric" id="motionCard">
+          <div class="name">Gerakan</div>
+          <div class="val" style="font-size:28px;margin-top:12px"><span class="motion-ico"></span><span id="motionVal">--</span></div>
+          <div class="note" id="motionNote">&nbsp;</div>
+        </section>
+      </div>
+ 
+      <section class="card">
+        <h2>Riwayat sensor</h2>
+        <div class="chart-box"><canvas id="chart"></canvas></div>
+      </section>
+    </div>
+ 
+    <!-- KOLOM KANAN -->
+    <div class="stack">
+      <section class="card">
+        <h2>Kendali perangkat</h2>
+ 
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="ctrl-name">Kipas (relay)</span><span class="ctrl-state" id="relayState">--</span></div>
+          <div class="seg" data-key="relay">
+            <button type="button" data-cmd="ON">Nyalakan</button>
+            <button type="button" data-cmd="OFF">Matikan</button>
+            <button type="button" data-cmd="AUTO">Otomatis</button>
+          </div>
+          <div class="manual-note" id="relayManual"></div>
+        </div>
+ 
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="ctrl-name">Jendela</span><span class="ctrl-state" id="windowState">--</span></div>
+          <div class="seg" data-key="window">
+            <button type="button" data-cmd="OPEN">Buka</button>
+            <button type="button" data-cmd="CLOSE">Tutup</button>
+            <button type="button" data-cmd="AUTO">Otomatis</button>
+          </div>
+          <div class="manual-note" id="windowManual"></div>
+        </div>
+ 
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="ctrl-name">Buzzer</span><span class="ctrl-state" id="buzzerState">--</span></div>
+          <div class="seg" data-key="buzzer">
+            <button type="button" data-cmd="ON">Nyalakan</button>
+            <button type="button" data-cmd="OFF">Matikan</button>
+            <button type="button" data-cmd="AUTO">Otomatis</button>
+          </div>
+          <div class="manual-note" id="buzzerManual"></div>
+        </div>
+      </section>
+ 
+      <section class="card">
+        <h2>Perangkat</h2>
+        <div class="ctrl" style="padding:0;border:none">
+          <div class="ctrl-head" style="margin:0"><span>ESP32 Smart Room</span><span class="ctrl-state" id="deviceState">Belum ada data</span></div>
+          <div class="muted" style="font-size:13px;margin-top:8px" id="lastSeen">Data terakhir: belum ada</div>
+        </div>
+      </section>
+ 
+      <section class="card">
+        <h2>Aktivitas</h2>
+        <ul class="log" id="log"><li class="empty">Belum ada aktivitas.</li></ul>
+      </section>
+    </div>
+  </div>
+ 
+  <div class="foot">
+    <span>Topik: smartroom/telemetry, smartroom/status, smartroom/motion</span>
+    <span>Perintah manual bertahan 30 detik, lalu perangkat kembali otomatis.</span>
+  </div>
+</div>
+ 
+<dialog id="dlg">
+  <form method="dialog" id="cfgForm">
+    <h3>Pengaturan broker</h3>
+    <label>Host broker
+      <input id="cfgHost" required autocomplete="off">
+    </label>
+    <div class="row2">
+      <label>Port WebSocket (TLS)
+        <input id="cfgPort" type="number" required>
+      </label>
+      <label>Path
+        <input id="cfgPath" required>
+      </label>
+    </div>
+    <div class="row2">
+      <label>Username
+        <input id="cfgUser" autocomplete="off">
+      </label>
+      <label>Password
+        <input id="cfgPass" type="password" autocomplete="off">
+      </label>
+    </div>
+    <div class="actions">
+      <button class="btn" value="cancel" type="button" id="cfgCancel">Batal</button>
+      <button class="btn primary" value="save" type="submit">Simpan dan hubungkan</button>
+    </div>
+  </form>
+</dialog>
+ 
+<script>
+/* ================== KONFIGURASI ================== */
+const DEFAULTS = {
+  host: 'c1460dff.ala.asia-southeast1.emqxsl.com',
+  port: 8084,          // port WebSocket TLS EMQX (bukan 8883)
+  path: '/mqtt',
+  user: 'mobcom',
+  pass: 'mobcom'
+};
+const STORE_KEY = 'smartroom-dashboard-cfg';
+const T = {
+  telemetry: 'smartroom/telemetry',
+  status:    'smartroom/status',
+  motion:    'smartroom/motion',
+  cmd: {
+    relay:  'smartroom/relay/set',
+    window: 'smartroom/window/set',
+    buzzer: 'smartroom/buzzer/set'
+  }
+};
+const MANUAL_MS = 30000;
+const STALE_MS  = 8000;
+const MAX_POINTS = 60;
+ 
+function loadCfg(){
+  try{
+    const s = localStorage.getItem(STORE_KEY);
+    return s ? Object.assign({}, DEFAULTS, JSON.parse(s)) : Object.assign({}, DEFAULTS);
+  }catch(e){ return Object.assign({}, DEFAULTS); }
+}
+function saveCfg(c){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(c)); }catch(e){} }
+ 
+let cfg = loadCfg();
+let client = null;
+let connected = false;
+let lastData = null;
+let lastSeen = 0;
+let wasClosedLogged = false;
+const manualUntil = { relay:0, window:0, buzzer:0 };
+ 
+/* ================== UTIL ================== */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const hhmmss = (d=new Date()) => d.toLocaleTimeString('id-ID',{hour12:false}).replace(/\./g,':');
+ 
+function log(msg, kind=''){
+  const ul = $('log');
+  const empty = ul.querySelector('.empty');
+  if(empty) empty.remove();
+  const li = document.createElement('li');
+  li.innerHTML = '<time>'+hhmmss()+'</time><span class="'+kind+'"></span>';
+  li.lastChild.textContent = msg;
+  ul.prepend(li);
+  while(ul.children.length > 100) ul.lastChild.remove();
+}
+ 
+function setConn(state){
+  const pill = $('connPill');
+  pill.dataset.state = state;
+  $('connText').textContent = {
+    online:'Terhubung ke broker',
+    connecting:'Menghubungkan...',
+    offline:'Terputus'
+  }[state];
+  connected = (state === 'online');
+  document.querySelectorAll('.seg button').forEach(b => b.disabled = !connected);
+}
+ 
+/* ================== CHART ================== */
+let chart = null;
+function initChart(){
+  if(typeof Chart === 'undefined'){ $('chart').parentElement.innerHTML = '<p class="empty">Grafik tidak bisa dimuat. Periksa koneksi internet.</p>'; return; }
+  Chart.defaults.font.family = "'Instrument Sans',system-ui,sans-serif";
+  Chart.defaults.color = '#5d746d';
+  chart = new Chart($('chart'), {
+    type:'line',
+    data:{ labels:[], datasets:[
+      { label:'Suhu (°C)', data:[], borderColor:'#e03131', backgroundColor:'#e03131', yAxisID:'y',  tension:.35, pointRadius:0, borderWidth:2.2 },
+      { label:'Kelembapan (%)', data:[], borderColor:'#2f9e44', backgroundColor:'#2f9e44', yAxisID:'y', tension:.35, pointRadius:0, borderWidth:2.2 },
+      { label:'Cahaya', data:[], borderColor:'#f2b705', backgroundColor:'#f2b705', yAxisID:'y2', tension:.35, pointRadius:0, borderWidth:2.2, borderDash:[5,4] }
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, boxWidth:8, padding:16 } } },
+      scales:{
+        x:{ grid:{ display:false }, ticks:{ maxTicksLimit:6 } },
+        y:{ position:'left',  grid:{ color:'#e1e9e5' }, suggestedMin:0, suggestedMax:100 },
+        y2:{ position:'right', grid:{ drawOnChartArea:false }, min:0, max:4095 }
+      }
+    }
+  });
+}
+function pushChart(d){
+  if(!chart) return;
+  const L = chart.data.labels;
+  L.push(hhmmss());
+  chart.data.datasets[0].data.push(d.temp);
+  chart.data.datasets[1].data.push(d.hum);
+  chart.data.datasets[2].data.push(d.light);
+  if(L.length > MAX_POINTS){
+    L.shift(); chart.data.datasets.forEach(ds => ds.data.shift());
+  }
+  chart.update('none');
+}
+ 
+/* ================== RENDER ================== */
+function verdictText(d){
+  const parts = [];
+  if(d.temp > 30) parts.push('<b>Ruangan terasa panas.</b>');
+  else if(d.temp < 20) parts.push('<b>Ruangan terasa sejuk.</b>');
+  else parts.push('<b>Suhu ruangan nyaman.</b>');
+  parts.push('Kipas ' + (d.relay === 'ON' ? 'menyala' : 'mati') + ', jendela ' + (d.window === 'CLOSED' ? 'tertutup' : 'terbuka') + '.');
+  if(d.motion === 'YES') parts.push('Ada gerakan di dalam ruangan.');
+  return parts.join(' ');
+}
+ 
+function setState(id, text, cls){
+  const el = $(id);
+  el.textContent = text;
+  el.className = 'ctrl-state' + (cls ? ' ' + cls : '');
+}
+ 
+function render(d){
+  $('tempVal').textContent = d.temp.toFixed(1);
+  $('tempMark').style.left = clamp(d.temp / 50 * 100, 0, 100) + '%';
+  $('verdict').innerHTML = verdictText(d);
+ 
+  $('humVal').textContent = d.hum.toFixed(1);
+  $('humBar').style.width = clamp(d.hum, 0, 100) + '%';
+  $('humNote').textContent = d.hum < 30 ? 'Udara kering' : d.hum > 70 ? 'Udara lembap' : 'Kelembapan normal';
+ 
+  $('lightVal').textContent = d.light;
+  $('lightBar').style.width = clamp(d.light / 4095 * 100, 0, 100) + '%';
+  $('lightNote').textContent = d.light > 2000 ? 'Terang, jendela ditutup' : 'Gelap, jendela dibuka';
+ 
+  const mo = d.motion === 'YES';
+  $('motionCard').classList.toggle('motion-on', mo);
+  $('motionVal').textContent = mo ? 'Terdeteksi' : 'Tidak ada';
+  $('motionNote').textContent = mo ? 'Buzzer aktif bila mode otomatis' : 'Ruangan tenang';
+ 
+  setState('relayState',  d.relay === 'ON' ? 'Menyala' : 'Mati', d.relay === 'ON' ? 'on' : '');
+  setState('windowState', d.window === 'CLOSED' ? 'Tertutup' : 'Terbuka', d.window === 'OPEN' ? 'on' : '');
+  setState('buzzerState', d.buzzer === 'ON' ? 'Berbunyi' : 'Diam', d.buzzer === 'ON' ? 'alert' : '');
+ 
+  refreshButtons();
+}
+ 
+function refreshButtons(){
+  const d = lastData;
+  document.querySelectorAll('.seg').forEach(seg => {
+    const key = seg.dataset.key;
+    const manual = manualUntil[key] > Date.now();
+    seg.querySelectorAll('button').forEach(b => {
+      const cmd = b.dataset.cmd;
+      let active = false;
+      if(cmd === 'AUTO') active = !manual;
+      else if(manual && d){
+        const cur = key === 'window' ? (d.window === 'CLOSED' ? 'CLOSE' : 'OPEN') : d[key];
+        active = (cmd === cur);
+      }
+      b.classList.toggle('active', active);
+    });
+  });
+}
+ 
+/* ================== MQTT ================== */
+function connect(){
+  if(client){ try{ client.end(true); }catch(e){} client = null; }
+  if(typeof mqtt === 'undefined'){
+    log('Library MQTT tidak bisa dimuat. Periksa koneksi internet.', 'err');
+    setConn('offline'); return;
+  }
+  $('brokerLine').textContent = cfg.host;
+  setConn('connecting');
+  wasClosedLogged = false;
+ 
+  const url = 'wss://' + cfg.host + ':' + cfg.port + cfg.path;
+  client = mqtt.connect(url, {
+    clientId: 'dashboard_' + Math.random().toString(16).slice(2, 10),
+    username: cfg.user || undefined,
+    password: cfg.pass || undefined,
+    clean: true,
+    keepalive: 30,
+    reconnectPeriod: 3000,
+    connectTimeout: 10000
+  });
+ 
+  client.on('connect', () => {
+    wasClosedLogged = false;
+    setConn('online');
+    client.subscribe([T.telemetry, T.status, T.motion], { qos:0 }, err => {
+      if(err) log('Gagal subscribe: ' + err.message, 'err');
+    });
+    log('Terhubung ke broker', 'ok');
+  });
+  client.on('reconnect', () => setConn('connecting'));
+  client.on('close', () => {
+    setConn('offline');
+    if(!wasClosedLogged){ log('Koneksi ke broker terputus, mencoba lagi...', 'warn'); wasClosedLogged = true; }
+  });
+  client.on('error', err => log('Error: ' + (err && err.message ? err.message : err), 'err'));
+  client.on('message', (topic, payload) => onMessage(topic, payload.toString()));
+}
+ 
+function onMessage(topic, text){
+  if(topic === T.telemetry){
+    let d;
+    try{ d = JSON.parse(text); }catch(e){ log('Telemetri tidak valid', 'err'); return; }
+    if(typeof d.temp !== 'number' || typeof d.hum !== 'number') return;
+    lastData = d; lastSeen = Date.now();
+    render(d); pushChart(d); updateDevice();
+  }
+  else if(topic === T.status){
+    log('Status perangkat: ' + text, text.toUpperCase() === 'ONLINE' ? 'ok' : 'warn');
+  }
+  else if(topic === T.motion){
+    log(text === 'DETECTED' ? 'Gerakan terdeteksi' : 'Gerakan berhenti', text === 'DETECTED' ? 'warn' : '');
+  }
+}
+ 
+function sendCmd(key, cmd){
+  if(!client || !connected) return;
+  client.publish(T.cmd[key], cmd, { qos:0 });
+  manualUntil[key] = (cmd === 'AUTO') ? 0 : Date.now() + MANUAL_MS;
+  const names = { relay:'Kipas', window:'Jendela', buzzer:'Buzzer' };
+  log(names[key] + ': perintah ' + cmd + ' dikirim');
+  refreshButtons(); tickManual();
+}
+ 
+/* ================== TIMER ================== */
+function tickManual(){
+  ['relay','window','buzzer'].forEach(k => {
+    const left = Math.ceil((manualUntil[k] - Date.now()) / 1000);
+    $(k + 'Manual').textContent = left > 0 ? 'Mode manual, kembali otomatis dalam ' + left + ' detik' : '';
+  });
+}
+function updateDevice(){
+  const el = $('deviceState');
+  if(!lastSeen){ el.textContent = 'Belum ada data'; el.className = 'ctrl-state'; return; }
+  const age = Date.now() - lastSeen;
+  if(age > STALE_MS){
+    el.textContent = 'Tidak merespons'; el.className = 'ctrl-state alert';
+  }else{
+    el.textContent = 'Aktif'; el.className = 'ctrl-state on';
+  }
+  $('lastSeen').textContent = 'Data terakhir: ' + hhmmss(new Date(lastSeen));
+}
+setInterval(() => {
+  tickManual();
+  if(lastSeen) updateDevice();
+  refreshButtons();
+}, 1000);
+ 
+/* ================== EVENT ================== */
+document.querySelectorAll('.seg').forEach(seg => {
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if(b && !b.disabled) sendCmd(seg.dataset.key, b.dataset.cmd);
+  });
+});
+ 
+const dlg = $('dlg');
+$('openSettings').addEventListener('click', () => {
+  $('cfgHost').value = cfg.host; $('cfgPort').value = cfg.port; $('cfgPath').value = cfg.path;
+  $('cfgUser').value = cfg.user; $('cfgPass').value = cfg.pass;
+  dlg.showModal();
+});
+$('cfgCancel').addEventListener('click', () => dlg.close());
+$('cfgForm').addEventListener('submit', () => {
+  cfg = {
+    host: $('cfgHost').value.trim(),
+    port: parseInt($('cfgPort').value, 10) || DEFAULTS.port,
+    path: $('cfgPath').value.trim() || '/mqtt',
+    user: $('cfgUser').value,
+    pass: $('cfgPass').value
+  };
+  saveCfg(cfg);
+  connect();
+});
+ 
+/* ================== START ================== */
+setConn('offline');
+initChart();
+connect();
+</script>
+</body>
+</html>
+ 

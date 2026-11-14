@@ -1,0 +1,209 @@
+{
+  "version": 1,
+  "author": "Smart Room Control",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-esp32-devkit-v1",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht",
+      "top": -120,
+      "left": 150,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-photoresistor-sensor",
+      "id": "ldr",
+      "top": -130,
+      "left": -200,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pir-motion-sensor",
+      "id": "pir",
+      "top": -140,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "relay",
+      "top": 200,
+      "left": -200,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servo",
+      "top": 200,
+      "left": 200,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "buzzer",
+      "top": 200,
+      "left": 380,
+      "attrs": {
+        "volume": "0.1"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "esp:TX0",
+      "$serialMonitor:RX",
+      "",
+      []
+    ],
+    [
+      "esp:RX0",
+      "$serialMonitor:TX",
+      "",
+      []
+    ],
+    [
+      "dht:VCC",
+      "esp:3V3",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "dht:GND",
+      "esp:GND.1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "dht:SDA",
+      "esp:D13",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "ldr:VCC",
+      "esp:3V3",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "ldr:GND",
+      "esp:GND.1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "ldr:AO",
+      "esp:D34",
+      "orange",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "pir:VCC",
+      "esp:VIN",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "pir:GND",
+      "esp:GND.2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "pir:OUT",
+      "esp:D14",
+      "blue",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "relay:VCC",
+      "esp:VIN",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "relay:GND",
+      "esp:GND.1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "relay:IN",
+      "esp:D27",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "servo:V+",
+      "esp:VIN",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "servo:GND",
+      "esp:GND.2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "servo:PWM",
+      "esp:D18",
+      "yellow",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "buzzer:1",
+      "esp:GND.2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "buzzer:2",
+      "esp:D25",
+      "purple",
+      [
+        "v0"
+      ]
+    ]
+  ],
+  "dependencies": {}
+}
